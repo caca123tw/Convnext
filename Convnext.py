@@ -7,7 +7,7 @@ from datetime import datetime
 import numpy as np
 
 # ====== 基本設定 ======
-DATA_DIR = r"./dataset"     # 改成你的資料夾路徑
+DATA_DIR = r"C:\Users\CalvinPC\Desktop\ProjectTrainData\weld_photos"     # 改成你的資料夾路徑
 IMG_SIZE = (224, 224)       # ConvNeXt 預設 224
 BATCH_SIZE = 32
 SEED = 123
@@ -18,8 +18,9 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 # 建議（可選）：啟用混合精度以加速 GPU（NVIDIA Ampere+）
 try:
     from tensorflow.keras.mixed_precision import set_global_policy
-    set_global_policy("mixed_float16")
-    print("✅ Mixed precision enabled.")
+    # set_global_policy("mixed_float16")  # 先關掉，避免 ConvNeXt LayerScale 打架
+    set_global_policy("float32")
+    print("✅ Mixed precision disabled (float32).")
 except Exception:
     print("⚠️ Mixed precision not enabled (optional).")
 
@@ -69,7 +70,7 @@ data_augmentation = keras.Sequential([
 ], name="data_augmentation")
 
 # ConvNeXt 的 preprocess：可用 Rescaling(1./255)
-preprocess = layers.Rescaling(1./255)
+preprocess = layers.Rescaling(1./255, dtype="float32")
 
 # ====== 建立模型（ConvNeXtTiny）======
 # 可選：'ConvNeXtTiny', 'ConvNeXtSmall', 'ConvNeXtBase', 'ConvNeXtLarge'
@@ -85,6 +86,7 @@ base.trainable = False  # 先凍結 backbone 做 warmup
 inputs = keras.Input(shape=IMG_SIZE + (3,))
 x = data_augmentation(inputs)
 x = preprocess(x)
+x = tf.cast(x, tf.float32)   # <--- 保證 backbone 輸入是 float32
 x = base(x, training=False)
 x = layers.GlobalAveragePooling2D()(x)
 x = layers.Dropout(0.2)(x)
